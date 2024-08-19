@@ -1,0 +1,163 @@
+---
+title: 'Drug Sales: Time Series Forecasts'
+---
+
+```{r}
+#Loading libraries
+
+library(tidyverse)
+library(rstatix)
+library(lubridate)
+library(fpp3)
+```
+
+```{r}
+#Loading data 
+
+pharma_sales <- read_csv("/Users/Elias/Downloads/Portfolio/salesmonthly.csv")
+
+head(pharma_sales)
+```
+```{r}
+#Checking for duplicate rows
+
+pharma_sales |> 
+  group_by(across(everything())) |> 
+  filter(n() > 1)
+```
+
+```{r}
+#Checking for regularity
+
+pharma_sales1 <- pharma_sales |> 
+  mutate(datum = floor_date(datum, unit = "month")) |> 
+  complete(datum = seq(min(datum), max(datum), by = "month"))
+
+head(pharma_sales1)
+```
+
+```{r}
+#Checking for null values
+
+pharma_sales1 |> 
+  filter(if_any(everything(), is.na))
+```
+
+```{r}
+#Checking for outliers
+
+for(i in 2:ncol(pharma_sales1)){
+  outliers <- identify_outliers(pharma_sales1[i])
+  print(outliers)
+}
+
+#We have no outliers for R06
+```
+
+```{r}
+#Converting to tsibble object
+
+pharma_sales2 <- pharma_sales1 |>
+  mutate(Month = yearmonth(datum)) |> 
+  select(-datum) |> 
+  as_tsibble(
+    index = Month
+  )
+
+head(pharma_sales2)
+```
+
+```{r}
+#Investigating trend and seasonality
+
+pharma_sales2 |> 
+  autoplot(R06) +
+  labs(title = "Time Plot: R06 Drug Sales", y = "Number of Sales")
+
+#There is seasonality. We must investigate further.
+```
+
+```{r}
+#Investigating seasonality further
+
+pharma_sales2 |> 
+gg_season(R06) + 
+  labs(title = "Seasonal Plot: R06 Drug Sales", y = "Number of Sales", color = "Year")
+
+#There is a sharp increase in sales from Jan - May and a gradual decrease in sales from May - December every year.
+```
+
+```{r}
+#Creating train and test sets
+
+train <- pharma_sales2 |> filter(year(Month) <= 2017)
+test <- pharma_sales2 |> filter(year(Month) > 2017)
+```
+
+```{r}
+#Creating a benchmark model: Seasonal Naive
+
+fit_snaive <- train |> 
+  model(SNAIVE = SNAIVE(R06))
+```
+
+```{r}
+#Fitting models: ARIMA
+
+#Because of the seasonality, we will apply seasonal difference to stabilize.  
+
+train |>
+  gg_tsdisplay(difference(R06, 12), plot_type = 'partial', lag = 12) +
+  labs(title = "Seasonally Differenced", y = "")
+
+#Now we must check if our data is stationary
+
+train |> features(difference(R06, 12), unitroot_kpss) #We fail to reject the null. Our data is stationary.
+
+#Based on our findings, the automatically selected ARIMA model should be similar to ARIMA(0,0,0)(0,1,1)[12] 
+
+fit_arima <- train |> 
+  model(ARIMA = ARIMA(R06, stepwise = FALSE, approximation = FALSE))
+
+fit_arima |> pivot_longer(everything(), names_to = "Model name", values_to = "Orders")
+```
+
+```{r}
+#Fitting models: ETS
+
+fit_ets <- train |> 
+  model(ETS = ETS(R06))
+
+fit_ets1 <- pharma_sales2 |> 
+  select(R06) |> 
+  model(ETS = ETS(R06))
+```
+
+```{r}
+#Using one-step forecasts to see which model fits the best
+
+fit_snaive |> 
+  refit(test) |>
+  accuracy()
+
+fit_arima |>
+  refit(test) |>
+  accuracy()
+
+fit_ets |>
+  refit(test) |>
+  accuracy()
+
+#Based on our accuracy metrics, the ETS model fits the best.
+```
+
+```{r}
+#Forecasting
+
+fit_ets |>
+  forecast(h = nrow(test)) |>
+  autoplot(pharma_sales2 |> select(R06)) +
+  labs(title = "Forecast: R06 Drug Sales", y = "Number of Sales")
+
+#You can follow the same process above for the other drugs. You can also try more advanced models like prophet, vector autoregressions, and neural network to see if they better fit the data. 
+```
