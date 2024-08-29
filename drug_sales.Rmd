@@ -81,10 +81,6 @@ fit_arima |> pivot_longer(everything(), names_to = "Model name", values_to = "Or
 fit_ets <- train |> 
   model(ETS = ETS(R06))
 
-fit_ets1 <- pharma_sales2 |> 
-  select(R06) |> 
-  model(ETS = ETS(R06))
-
 #Using one-step forecasts to see which model fits the best
 ##Based on our accuracy metrics, the ETS model fits the best.
 fit_snaive |> 
@@ -100,9 +96,12 @@ fit_ets |>
   accuracy()
 
 #Forecasting
-fit_ets |>
-  forecast(h = nrow(test)) |>
+##You can follow the same process above for the other drugs. You can also try more advanced models like prophet, vector autoregressions, and neural network to see if they better fit the data. 
+
+fit_final <- pharma_sales2 |> 
+  model(ETS = ETS(R06))
+
+fit_final |>
+  forecast(h = 12) |>
   autoplot(pharma_sales2 |> select(R06)) +
   labs(title = "Forecast: R06 Drug Sales", y = "Number of Sales")
-
-#You can follow the same process above for the other drugs. You can also try more advanced models like prophet, vector autoregressions, and neural network to see if they better fit the data. 
