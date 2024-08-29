@@ -105,3 +105,6 @@ fit_final |>
   forecast(h = 12) |>
   autoplot(pharma_sales2 |> select(R06)) +
   labs(title = "Forecast: R06 Drug Sales", y = "Number of Sales")
+
+#Clearing the workspace
+rm(list = ls())
