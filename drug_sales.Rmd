@@ -26,7 +26,7 @@ pharma_sales1 |>
   filter(if_any(everything(), is.na))
 
 #Checking for outliers
-##We have no outliers for R06
+#We have no outliers for R06
 for(i in 2:ncol(pharma_sales1)){
   outliers <- identify_outliers(pharma_sales1[i])
   print(outliers)
@@ -43,13 +43,13 @@ pharma_sales2 <- pharma_sales1 |>
 head(pharma_sales2)
 
 #Investigating trend and seasonality
-##There is seasonality. We must investigate further.
+#There is seasonality. We must investigate further.
 pharma_sales2 |> 
   autoplot(R06) +
   labs(title = "Time Plot: R06 Drug Sales", y = "Number of Sales")
 
 #Investigating seasonality further
-##There is a sharp increase in sales from Jan - May and a gradual decrease in sales from May - December every year.
+#There is a sharp increase in sales from Jan - May and a gradual decrease in sales from May - December every year.
 pharma_sales2 |> 
 gg_season(R06) + 
   labs(title = "Seasonal Plot: R06 Drug Sales", y = "Number of Sales", color = "Year")
@@ -63,16 +63,16 @@ fit_snaive <- train |>
   model(SNAIVE = SNAIVE(R06))
 
 #Fitting models: ARIMA
-##Because of the seasonality, we will apply seasonal difference to stabilize.  
+#Because of the seasonality, we will apply seasonal difference to stabilize.  
 train |>
   gg_tsdisplay(difference(R06, 12), plot_type = 'partial', lag = 12) +
   labs(title = "Seasonally Differenced", y = "")
 
-##Now we must check if our data is stationary
-##We fail to reject the null. Our data is stationary.
+#Now we must check if our data is stationary
+#We fail to reject the null. Our data is stationary.
 train |> features(difference(R06, 12), unitroot_kpss) 
 
-##Based on our findings, the automatically selected ARIMA model should be similar to ARIMA(0,0,0)(0,1,1)[12] 
+#Based on our findings, the automatically selected ARIMA model should be similar to ARIMA(0,0,0)(0,1,1)[12] 
 fit_arima <- train |> 
   model(ARIMA = ARIMA(R06, stepwise = FALSE, approximation = FALSE))
 fit_arima |> pivot_longer(everything(), names_to = "Model name", values_to = "Orders")
@@ -82,7 +82,7 @@ fit_ets <- train |>
   model(ETS = ETS(R06))
 
 #Using one-step forecasts to see which model fits the best
-##Based on our accuracy metrics, the ETS model fits the best.
+#Based on our accuracy metrics, the ETS model fits the best.
 fit_snaive |> 
   refit(test) |>
   accuracy()
@@ -96,7 +96,7 @@ fit_ets |>
   accuracy()
 
 #Forecasting
-##You can follow the same process above for the other drugs. You can also try more advanced models like prophet, vector autoregressions, and neural network to see if they better fit the data. 
+#You can follow the same process above for the other drugs. You can also try more advanced models like prophet, vector autoregressions, and neural network to see if they better fit the data. 
 
 fit_final <- pharma_sales2 |> 
   model(ETS = ETS(R06))
